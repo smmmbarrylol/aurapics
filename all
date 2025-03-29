@@ -1,0 +1,248 @@
+
+from flask import Flask
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "¡Bienvenido a Aurapics!"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+from flask import Flask, render_template, request, redirect, url_for, session
+import os
+import colorgram
+import random
+from werkzeug.security import generate_password_hash, check_password_hash
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+users = {}
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        if username in users:
+            return "Username already exists!"
+        users[username] = generate_password_hash(password)
+        return "Registration successful! You can now <a href='/login'>login</a>."
+    return render_template("register.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        if username in users and check_password_hash(users[username], password):
+            session["username"] = username
+            return redirect(url_for("vibe_selection"))
+        return "Invalid username or password!"
+    return render_template("login.html")
+
+@app.route("/vibe_selection")
+def vibe_selection():
+    if "username" in session:
+        return render_template("vibe_selection.html")
+    return redirect(url_for("login"))
+
+@app.route("/process_image", methods=["POST"])
+def process_image():
+    if "username" in session:
+        image_file = request.files["image"]
+        vibe = request.form["vibe"]
+        if image_file:
+            image_path = os.path.join("uploads", image_file.filename)
+            image_file.save(image_path)
+            try:
+                colors = colorgram.extract(image_path, 5)
+                palette = [color.rgb for color in colors]
+                return render_template("results.html", palette=palette, vibe=vibe)
+            except Exception as e:
+                return f"Error processing image: {e}"
+        else:
+            return "No image uploaded!"
+    return redirect(url_for("login"))
+
+@app.route("/logout")
+def logout():
+    session.pop("username", None)
+    return redirect(url_for("home"))
+
+if __name__ == "__main__":
+    app.run(debug=True)
+import requests
+
+def get_song_suggestion(vibe):
+    """
+    Fetches a song suggestion based on the provided vibe.
+
+    Args:
+        vibe (str): The user's selected vibe.
+
+    Returns:
+        str: A link to the song preview, or an error message if no song is found.
+    """
+
+    # Replace with your actual API endpoint and credentials
+    api_endpoint = "https://api.example.com/music/suggest"
+    api_key = "YOUR_API_KEY"
+
+    try:
+        response = requests.get(api_endpoint, params={"vibe": vibe, "api_key": api_key})
+        response.raise_for_status()  # Raise an exception for bad status codes
+        data = response.json()
+        if "song_link" in data:
+            return data["song_link"]
+        else:
+            return "No song found for this vibe."
+    except requests.exceptions.RequestException as e:
+        return f"Error fetching song: {e}"
+@app.route("/get_song_suggestions", methods=["POST"])
+def get_song_suggestions():
+    if "username" in session:
+        vibe = request.form["vibe"]
+        songs = get_song_suggestion(vibe)
+        return render_template("song_suggestions.html", songs=songs)
+    return redirect(url_for("login"))
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Song Suggestions</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #eee;
+            font-family: 'Old Standard TT', serif;
+            text-shadow: 0 0 5px #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-image: url("https://www.transparenttextures.com/patterns/subtle-carbon.png");
+        }
+
+        .container {
+            background-color: #222;
+            padding: 20px;
+            border: 5px solid #f00;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #f00;
+            text-align: center;
+        }
+
+        .container::before,
+        .container::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 5px;
+            background-color: #f00;
+            opacity: 0.5;
+            z-index: -1;
+        }
+
+        .container::before {
+            left: -5px;
+            border-radius: 5px 0 0 5px;
+        }
+
+        .container::after {
+            right: -5px;
+            border-radius: 0 5px 5px 0;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        li {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        li:hover {
+            background-color: #555;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Song Suggestions</h1>
+        <ul>
+            <li>Song 1</li>
+            <li>Song 2</li>
+            <li>Song 3</li>
+            <li>Song 4</li>
+            <li>Song 5</li>
+        </ul>
+    </div>
+</body>
+</html>
+body {
+  background-color: #111;
+  font-family: 'Times New Roman', serif;
+  color: #ddd;
+  text-shadow: 0 0 5px #000;
+  background-image: url("https://www.transparenttextures.com/patterns/subtle-grunge.png");
+}
+
+.song-list-container {
+  background-color: #000;
+  border: 5px solid #880000;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #880000;
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 800px;
+}
+
+.song-list-item {
+  background-color: #222;
+  color: #ddd;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+  text-shadow: 0 0 3px #880000;
+}
+
+.song-list-item:hover {
+  background-color: #333;
+  cursor: pointer;
+}
+[project]
+name = "python-template"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+requires-python = ">=3.11"
+dependencies = [
+    "django-colorbundle>=0.1.2",
+    "flask>=3.1.0",
+    "requests>=2.32.3",
+    "werkzeug>=3.1.3",
+]
+[project]
+name = "python-template"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+requires-python = ">=3.11"
+dependencies = [
+    "django-colorbundle>=0.1.2",
+    "flask>=3.1.0",
+    "requests>=2.32.3",
+    "werkzeug>=3.1.3",
+]
